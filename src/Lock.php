@@ -37,17 +37,12 @@ class Lock {
 		if (!touch($resource)) {
 			throw new \RuntimeException("Unable to create resource '{$resource}'");
 		}
-		echo $resource . PHP_EOL;
-
 		if ((static::$_resource = fopen($resource, 'r')) === false) {
 			throw new \RuntimeException("Unable to open resource '{$resource}'");
 		}
 
 		if (!flock(static::$_resource, LOCK_EX + LOCK_NB)) {
-			echo "LOCKED" . PHP_EOL;
 			throw new \RuntimeException("Unable to lock {$resource}");
-		} else {
-			echo "OK" . PHP_EOL;
 		}
 
 		return Status::BUSY;
