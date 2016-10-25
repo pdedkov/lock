@@ -2,14 +2,12 @@
 namespace Locker;
 
 class Lock {
-	protected static $_Instance = null;
-
 	/**
 	 * Current locked resource
 	 *
 	 * @var null
 	 */
-	protected $_resource = null;
+	protected static $_resource = null;
 
 	protected function __construct() {
 
@@ -20,32 +18,36 @@ class Lock {
 	}
 
 	/**
-	 *
-	 * @return \Locker\Lock
-	 */
-	public static function getInstance() {
-		if (static::$_Instance === null) {
-			static::$_Instance = new static();
-		}
-
-		return static::$_Instance;
-	}
-
-	/**
 	 * Lock resource
 	 * @param mixed $resource
 	 * @return int
 	 * @throws \RuntimeException
 	 */
 	public static function lock($resource = null) {
-		$_this = static::getInstance();
-
-		if (!empty($_this->_resource)) {
+		if (!empty(static::$_resource)) {
 			throw new \RuntimeException("Already locked {$resource}");
 		}
 
-		if (!flock($_this->_handler($resource), LOCK_EX | LOCK_NB)) {
+		if (empty($resource)) {
+			$resource = tempnam(sys_get_temp_dir(), 'lock_');
+		} else {
+			$resource = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'lock_' . $resource;
+		}
+
+		if (!touch($resource)) {
+			throw new \RuntimeException("Unable to create resource '{$resource}'");
+		}
+		echo $resource . PHP_EOL;
+
+		if ((static::$_resource = fopen($resource, 'r')) === false) {
+			throw new \RuntimeException("Unable to open resource '{$resource}'");
+		}
+
+		if (!flock(static::$_resource, LOCK_EX + LOCK_NB)) {
+			echo "LOCKED" . PHP_EOL;
 			throw new \RuntimeException("Unable to lock {$resource}");
+		} else {
+			echo "OK" . PHP_EOL;
 		}
 
 		return Status::BUSY;
@@ -57,62 +59,27 @@ class Lock {
 	 * @throws \RuntimeException
 	 */
 	public static function unlock() {
-		$_this = static::getInstance();
-
-		if (empty($_this->_resource)) {
+		if (empty(static::$_resource)) {
 			throw new \RuntimeException("No lock");
 		}
 
-		if (!flock($_this->_handler(), LOCK_UN)) {
-			throw new \RuntimeException("Unable to unlock '{$_this->_resource}'");
+		if (!flock(static::$_resource, LOCK_UN)) {
+			throw new \RuntimeException("Unable to unlock");
 		}
 
-		$_this->_resource = null;
-
-		return Status::FREE;
+		return static::reset();
 	}
 
 	/**
 	 * Reset current lock
 	 */
 	public static function reset() {
-		$_this = static::getInstance();
-
-		$_this->_resource = null;
-	}
-
-	/**
-	 * get resource handler
-	 *
-	 * @param mixed $resource
-	 * @return resource
-	 * @throws \RuntimeException
-	 */
-	protected function _handler($resource = null) {
-		if (empty($resource) && empty($this->_resource)) {
-			$resource = tempnam(sys_get_temp_dir(), 'lock_');
-		} elseif (empty($this->_resource)) {
-			$resource = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'lock_' . $resource;
-		} else {
-			$resource = $this->_resource;
+		if (!empty(static::$_resource)) {
+			@fclose(static::$_resource);
 		}
 
-		if (!file_exists($resource) && !touch($resource)) {
-			throw new \RuntimeException("Unable to create resource '{$resource}'");
-		}
+		static::$_resource = null;
 
-		if (($handler = fopen($resource, 'r')) === false) {
-			throw new \RuntimeException("Unable to open resource '{$resource}'");
-		}
-
-		$this->_resource = $resource;
-
-		return $handler;
-	}
-
-	public function __destruct() {
-		if (!empty($this->_resource)) {
-			@fclose($this->_resource);
-		}
+		return Status::FREE;
 	}
 }
