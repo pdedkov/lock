@@ -1,9 +1,10 @@
 <?php
-namespace Locker;
+namespace Locker\Tests;
 
-use PHPUnit\Framework\TestCase;
+use Locker\Lock;
+use Locker\Status;
 
-class LockTest extends TestCase {
+class LockTest extends \PHPUnit_Framework_TestCase {
 	public function setUp() {
 		parent::setUp();
 
